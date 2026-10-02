@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "title": "虚构样例 借款利息计算",
+  "currency": "人民币元",
+  "rounding": "total",
+  "analysis": {
+    "status": "ready",
+    "unresolved": [],
+    "rules": ["虚构约定年利率36.5%，按365天折算，首尾均计息，归还本金次日扣减。", "加倍部分的本金与期间由虚构文书单独确定。"],
+    "assumptions": []
+  },
+  "general": [{
+    "id": "G1", "principal": "100000", "start": "2024-01-01", "end": "2024-01-10",
+    "day_count": "both", "repayment_effective": "next_day",
+    "rate": {"mode": "fixed", "unit": "annual_percent", "value": "36.5", "basis": 365},
+    "source": "虚构借款合同第3条，虚构核对记录明确年基准及首尾日",
+    "repayments": [{"id": "P1", "date": "2024-01-05", "amount": "40000", "source": "虚构收款凭证，确认全部冲减本金"}]
+  }],
+  "delay": [{
+    "id": "D1", "principal": "60000", "start": "2024-01-06", "end": "2024-01-10",
+    "day_count": "both", "repayment_effective": "next_day",
+    "source": "虚构生效裁判及用户确认的加倍部分计息期间"
+  }]
+}
