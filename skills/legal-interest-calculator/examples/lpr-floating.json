@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "title": "虚构样例 动态LPR及还本计算",
+  "currency": "人民币元",
+  "rounding": "total",
+  "analysis": {
+    "status": "ready", "unresolved": [],
+    "rules": ["虚构文书要求按一年期LPR随公告变化计息，年基准365，首尾均算；还本当日扣减。"],
+    "assumptions": []
+  },
+  "general": [{
+    "id": "G1", "principal": "1000000", "start": "2024-07-01", "end": "2024-11-01",
+    "day_count": "both", "repayment_effective": "same_day",
+    "rate": {"mode": "lpr", "unit": "annual_percent", "basis": 365, "term": "one_year", "policy": "floating"},
+    "source": "虚构文书第2页及虚构口径核对记录",
+    "repayments": [{"date": "2024-07-22", "amount": "100000", "source": "虚构还本凭证"}]
+  }],
+  "delay": []
+}
