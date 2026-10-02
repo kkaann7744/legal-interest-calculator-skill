@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+.venv/
+node_modules/
+outputs/
+qa/
+cases/
+*.docx
+*.xlsx
+*.pdf
+*.png
+*.zip
+.env
+.env.*
+*.pem
+*.key
