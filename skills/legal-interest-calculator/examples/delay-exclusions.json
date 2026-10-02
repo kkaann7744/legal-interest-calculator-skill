@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "title": "虚构样例 加倍部分及排除期间",
+  "currency": "人民币元", "rounding": "total",
+  "analysis": {"status": "ready", "unresolved": [], "rules": ["虚构文书确定加倍部分基数和区间；虚构裁定确定排除期间。"]},
+  "general": [],
+  "delay": [{
+    "id": "D1", "principal": "100000", "start": "2024-01-01", "end": "2024-01-10",
+    "day_count": "both", "repayment_effective": "next_day", "source": "虚构生效文书及已确认日期",
+    "repayments": [{"date": "2024-01-05", "amount": "40000", "source": "虚构本金清偿确认"}],
+    "exclude_periods": [
+      {"start": "2024-01-03", "end": "2024-01-04", "reason": "虚构裁定确定不计息", "source": "虚构裁定第1页"},
+      {"start": "2024-01-06", "end": "2024-01-07", "reason": "虚构裁定确定不计息", "source": "虚构裁定第2页"}
+    ]
+  }]
+}
