@@ -1,0 +1,4 @@
+interface:
+  display_name: "法律利息计算"
+  short_description: "根据案件材料确定计息口径，调用本地程序输出利息计算表并独立复核结果"
+  default_prompt: "使用 $legal-interest-calculator，根据我提供的材料确定计息口径，在本地计算利息并输出 Word、Excel，最后复核参数和结果。"
