@@ -1,11 +1,13 @@
 """Financial boundary, deterministic export and tampering tests using fictitious data."""
 import copy
 import hashlib
+import json
 import random
 import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -245,6 +247,69 @@ class InterestTests(unittest.TestCase):
             run(path / "plan.json", path / "out")
             with self.assertRaises(PlanError):
                 run(path / "plan.json", path / "out")
+
+    def test_excel_semantic_changes_with_updated_checksum(self):
+        ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        changes = {"category": ("A8", "s:is/s:t", "加倍部分"),
+                   "unit": ("H8", "s:is/s:t", "月"),
+                   "basis": ("I8", "s:v", "360"),
+                   "rounding_formula": ("K8", "s:f", "ROUND(J8,0)"),
+                   "principal_formula": ("F8", None, "1"),
+                   "extra_row": (None, None, None)}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            json_file(path / "plan.json", self.plan)
+            run(path / "plan.json", path / "out")
+            target = path / "out" / "interest-report.xlsx"
+            with ZipFile(target) as z:
+                original = {name: z.read(name) for name in z.namelist()}
+            for label, (ref, child, value) in changes.items():
+                with self.subTest(change=label):
+                    members = original.copy()
+                    root = ET.fromstring(members["xl/worksheets/sheet1.xml"])
+                    if ref is None:
+                        row = copy.deepcopy(root.find(".//s:row[@r='8']", ns))
+                        row.set("r", "99")
+                        for cell in row:
+                            cell.set("r", cell.get("r")[:-1] + "99")
+                        root.find("s:sheetData", ns).append(row)
+                    else:
+                        cell = root.find(f".//s:c[@r='{ref}']", ns)
+                        if child:
+                            cell.find(child, ns).text = value
+                        else:
+                            ET.SubElement(cell, "{" + ns["s"] + "}f").text = value
+                    members["xl/worksheets/sheet1.xml"] = ET.tostring(root)
+                    write_zip(target, members)
+                    manifest = read_json(path / "out" / "manifest.json")
+                    manifest["files"][target.name] = hashlib.sha256(target.read_bytes()).hexdigest()
+                    json_file(path / "out" / "manifest.json", manifest)
+                    with self.assertRaises(PlanError):
+                        verify_bundle(path / "out")
+
+    def test_check_only_validates_without_creating_outputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            json_file(path / "plan.json", self.plan)
+            command = [sys.executable, str(SKILL / "scripts" / "calculate.py"),
+                       "--input", str(path / "plan.json"), "--check-only"]
+            checked = subprocess.run(command, capture_output=True, text=True, cwd=path)
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+            report = json.loads(checked.stdout)
+            self.assertEqual(report["status"], "valid")
+            self.assertNotIn("totals", report)
+            self.assertEqual(list(path.iterdir()), [path / "plan.json"])
+            for change in ("missing_basis", "unresolved"):
+                invalid = copy.deepcopy(self.plan)
+                if change == "missing_basis":
+                    del invalid["general"][0]["rate"]["basis"]
+                else:
+                    invalid["analysis"].update(status="draft", unresolved=["首尾日未明确"])
+                json_file(path / "plan.json", invalid)
+                checked = subprocess.run(command, capture_output=True, text=True, cwd=path)
+                self.assertEqual(checked.returncode, 2)
+                self.assertEqual(json.loads(checked.stdout)["status"], "error")
+                self.assertEqual(list(path.iterdir()), [path / "plan.json"])
 
     def test_repayment_rule_only_required_with_payments(self):
         leg = self.simple()
