@@ -54,6 +54,13 @@ Codex 可通过 skill-installer 安装该 GitHub 子目录。也可以下载仓�
 
 模型完成依据与结果复核后另存 model-review.md。默认不覆盖已有输出。仅需JSON时使用 --formats json。
 
+只检查参数，不生成报告或金额：
+
+    python3 skills/legal-interest-calculator/scripts/calculate.py \
+      --input skills/legal-interest-calculator/examples/fixed-repayment.json --check-only
+
+预检通过返回 status=valid；未决口径、缺项、无效参数或未核验的LPR区间返回错误。预检不会自动补齐事实，也不代替材料依据复核。简单且完整的参数可以直接正式计算。
+
 独立复核已有计算包：
 
     python3 skills/legal-interest-calculator/scripts/verify.py --bundle outputs/example-01
@@ -68,7 +75,7 @@ Codex 可通过 skill-installer 安装该 GitHub 子目录。也可以下载仓�
 
     python3 -m unittest discover -s tests -v
 
-测试覆盖还本和利率变动同日、闰年、首尾日、日/月/年利率、固定及动态LPR、排除期间、舍入、拒绝未决口径、篡改检测与重复运行结果一致性。测试和示例全部为虚构材料。
+测试覆盖还本和利率变动同日、闰年、首尾日、日/月/年利率、固定及动态LPR、排除期间、舍入、拒绝未决口径、预检无文件写入、篡改检测与重复运行结果一致性。Excel复核同时检查利率单位、分母、类别、明细行数与计算及舍入公式，防止缓存金额正确而公式参数错误。测试和示例全部为虚构材料。
 
 参数细节见 [输入格式](skills/legal-interest-calculator/references/input-schema.md)，材料复核要求及官方来源见 [计息规则](skills/legal-interest-calculator/references/legal-rules.md)。
 
