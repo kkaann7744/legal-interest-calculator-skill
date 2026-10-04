@@ -5,11 +5,22 @@ import argparse
 import hashlib
 import json
 import tempfile
+from decimal import localcontext
 from pathlib import Path
 
-from calculator import PlanError, calculate, load_rates, read_json, require
+from calculator import PlanError, calculate, digest, load_rates, read_json, require, validate_plan
 from exports import export_docx, export_html, export_xlsx, json_file
 from verify import verify_math
+
+
+def check(input_path, rates_path=None):
+    """Validate a complete plan without calculating amounts or writing any files."""
+    plan, rates = read_json(input_path), load_rates(rates_path)
+    with localcontext() as context:
+        context.prec = 60
+        warnings = validate_plan(plan, rates)
+    return {"status": "valid", "plan_sha256": digest(plan), "warnings": warnings,
+            "message": "参数格式与支持范围检查通过；尚未计算金额或复核材料依据"}
 
 
 def run(input_path, output_dir, rates_path=None, formats="json,html,docx,xlsx", force=False):
@@ -53,13 +64,20 @@ def run(input_path, output_dir, rates_path=None, formats="json,html,docx,xlsx", 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="根据已确定的计息参数，在本地计算、导出并独立核验")
     parser.add_argument("--input", required=True, help="计息参数JSON")
-    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--output-dir", help="正式计算时必填；预检不使用")
+    parser.add_argument("--check-only", action="store_true", help="只校验参数，不计算金额或写入文件")
     parser.add_argument("--rates", help="指定公开LPR快照")
     parser.add_argument("--formats", default="json,html,docx,xlsx")
     parser.add_argument("--force", action="store_true", help="替换此目录内同名工具输出")
     args = parser.parse_args()
     try:
-        print(json.dumps(run(args.input, args.output_dir, args.rates, args.formats, args.force), ensure_ascii=False))
+        if args.check_only:
+            require(not args.output_dir and not args.force, "--check-only 不接受 --output-dir 或 --force")
+            report = check(args.input, args.rates)
+        else:
+            require(bool(args.output_dir), "正式计算须指定 --output-dir")
+            report = run(args.input, args.output_dir, args.rates, args.formats, args.force)
+        print(json.dumps(report, ensure_ascii=False))
     except (PlanError, OSError, ValueError, TypeError, KeyError) as e:
         print(json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False))
         raise SystemExit(2)
