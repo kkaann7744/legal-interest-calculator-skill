@@ -108,6 +108,7 @@ def xml_cells(sheet):
     namespace = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     result = {}
     for c in ET.fromstring(sheet).findall(".//s:sheetData/s:row/s:c", namespace):
+        require(c.get("r") is not None and c.get("r") not in result, "Excel单元格地址缺失或重复")
         if c.get("t") == "inlineStr":
             value = "".join(t.text or "" for t in c.findall(".//s:t", namespace))
         else:
@@ -133,14 +134,28 @@ def verify_artifacts(bundle, result):
     xlsx = bundle / "interest-report.xlsx"
     if xlsx.name in manifest["files"]:
         with ZipFile(xlsx) as z:
-            cells = xml_cells(z.read("xl/worksheets/sheet1.xml"))
+            sheet = z.read("xl/worksheets/sheet1.xml")
+            cells = xml_cells(sheet)
+        ns = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+        sheet_rows = ET.fromstring(sheet).findall("s:sheetData/s:row", ns)
+        require([r.get("r") for r in sheet_rows] == [str(i) for i in range(1, len(result["rows"]) + 8)],
+                "Excel明细行数或行序不一致")
+        formulas = {}
         for i, row in enumerate(result["rows"], 8):
+            require({c.get("r") for c in sheet_rows[i - 1]} == {f"{col}{i}" for col in "ABCDEFGHIJK"},
+                    "Excel明细列缺失或多出")
             for col, key in (("B", "id"), ("C", "start"), ("D", "end"), ("E", "days"), ("F", "principal"),
-                             ("G", "rate"), ("J", "interest_raw"), ("K", "interest")):
+                             ("G", "rate"), ("I", "basis"), ("J", "interest_raw"), ("K", "interest")):
                 actual = cells.get(f"{col}{i}", ("", None))[0]
                 require(actual == str(row[key]), f"Excel分段{i - 7}的{key}与计算结果不一致")
-            expected_formula = f"F{i}*G{i}/100*E{i}/I{i}*IF(H{i}=\"月\",12,1)"
-            require(cells[f"J{i}"][1] == expected_formula, "Excel计算公式不一致")
+            require(cells[f"A{i}"][0] == ("一般债务" if row["kind"] == "general" else "加倍部分"),
+                    "Excel利息类别不一致")
+            require(cells[f"H{i}"][0] == {"annual_percent": "年", "monthly_percent": "月", "daily_percent": "日"}[row["rate_unit"]],
+                    "Excel利率单位不一致")
+            formulas[f"J{i}"] = f"F{i}*G{i}/100*E{i}/I{i}*IF(H{i}=\"月\",12,1)"
+            formulas[f"K{i}"] = f"ROUND(J{i},2)"
+        require({ref: value[1] for ref, value in cells.items() if value[1] is not None} == formulas,
+                "Excel计算公式不一致或含额外公式")
         require(cells.get("B3", ("",))[0] == result["totals"]["general"], "Excel一般债务合计不一致")
         require(cells.get("E3", ("",))[0] == result["totals"]["delay"], "Excel加倍部分合计不一致")
         require(cells.get("H3", ("",))[0] == result["totals"]["interest"], "Excel利息合计不一致")
